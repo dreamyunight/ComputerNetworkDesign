@@ -8,9 +8,3 @@ struct SensorData {
     bool mainFanStatus;  // 主风扇状态
     bool backupFanStatus;// 备风扇状态
 };
-
-class Client {
-private:
-  
-public:
-};

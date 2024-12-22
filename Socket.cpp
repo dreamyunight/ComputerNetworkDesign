@@ -23,6 +23,9 @@ void Socket::bind(InetAddress *addr) {
     //::bind明确调用全局作用域中的bind函数
     errif(::bind(fd, (sockaddr *)&addr->addr, addr->addr_len), "Socket bind error");
 }
+void Socket::listen() {
+    errif(::listen(fd, SOMAXCONN),"Socket listen error");
+}
 int Socket::accept(InetAddress *addr) {
     int clnt_sockfd = ::accept(fd, (sockaddr *)&addr->addr, &addr->addr_len);
     errif(clnt_sockfd, "Socket accept error");

@@ -59,6 +59,7 @@ int main() {
         }
     }
 
+    close(serv_sock->getFd());
     delete serv_sock;
     delete serv_addr;
     delete ep;
