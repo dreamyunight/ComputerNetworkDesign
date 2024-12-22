@@ -22,7 +22,8 @@
 
 // int对应需要需要回信的客户端，使用队列存储需要回应的信息
 std::map<int, std::queue<std::string>> client_buffers;
-void handReadEvent(int sockfd, Epoll* ep);
+void handReadEvent(int sockfd, Epoll *ep);
+void handWriteEvent(int clntfd, Epoll *ep);
 int main() {    
     Socket *serv_sock = new Socket();
     InetAddress *serv_addr = new InetAddress("127.0.0.1", 8888);
@@ -50,9 +51,10 @@ int main() {
             } else
             // 某客户端有可写事件，发送数据
             if (events[i].events & EPOLLOUT) {
-                int client_fd = events[i].data.fd;
-
-                
+                handWriteEvent(events[i].data.fd, ep);
+            } else {
+            // 其他事件，暂未处理
+                printf("Something else happened\n");
             }
         }
     }
@@ -78,6 +80,7 @@ void handReadEvent(int sockfd, Epoll* ep) {
         // 生成操作指令
         std::string instruction = "Server command: Perform Action 1";
         client_buffers[sockfd].push(confirmation);
+        client_buffers[sockfd].push(instruction);
         
         ep->modFd(sockfd, EPOLLOUT);
     } else
@@ -92,6 +95,19 @@ void handReadEvent(int sockfd, Epoll* ep) {
     // 读取出错
     if (bytes_read == -1) {
         errif(bytes_read, "Event read error");
+    }
+}
+
+void handWriteEvent(int clntfd, Epoll *ep) {
+    if (!client_buffers[clntfd].empty()) {
+        std::string data = client_buffers[clntfd].front();
+        client_buffers[clntfd].pop();
+        ssize_t bytes_write = write(clntfd, data.c_str(), data.size());
+        errif(bytes_write, "Event write error");
+        printf("Sent to client fd %d: %s\n", clntfd, data.c_str());
+    }
+    if (client_buffers[clntfd].empty()) {
+        ep->modFd(clntfd, EPOLLIN);// 修改只监听可读事件
     }
 }
 
