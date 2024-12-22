@@ -24,15 +24,26 @@ Epoll::~Epoll() {
     delete[] events;
 }
 
-void Epoll::addFd(int fd, uint32_t op) {
+void Epoll::addFd(int dataFd, uint32_t eventOp) {
     // ev 配置单个文件描述符的监听事件。
     struct epoll_event ev;
     bzero(&ev, sizeof(ev));
 
-    ev.data.fd  = fd;   // 将 sockfd（服务器监听套接字）绑定到 ev
-    ev.events = op;     // 配置触发模式
+    ev.data.fd  = dataFd;   // 将 sockfd（服务器监听套接字）绑定到 ev
+    ev.events   = eventOp;  // 配置触发模式
 
-    errif(epoll_ctl(epfd, EPOLL_CTL_ADD, fd, &ev), "Epoll add error");
+    errif(epoll_ctl(epfd, EPOLL_CTL_ADD, dataFd, &ev), "Epoll add error");
+}
+
+void Epoll::modFd(int dataFd, uint32_t eventOp) {
+    // ev 配置单个文件描述符的监听事件。
+    struct epoll_event ev;
+    bzero(&ev, sizeof(ev));
+
+    ev.data.fd  = dataFd;   // 将 sockfd（服务器监听套接字）绑定到 ev
+    ev.events   = eventOp;  // 配置触发模式
+
+    errif(epoll_ctl(epfd, EPOLL_CTL_MOD, dataFd, &ev), "Epoll mod error");
 }
 
 std::vector<epoll_event> Epoll::pull(int timeout) {
