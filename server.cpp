@@ -1,4 +1,5 @@
 #include "server.h"
+#include "client.h"
 #include "InetAddress.h"
 #include "util.h"
 #include "Socket.h"
@@ -65,6 +66,31 @@ int main() {
     delete ep;
     return 0;
 }
+
+bool verifyChecksum(const char* buffer) {
+    // 查找字符串中最后一个逗号后的检验和部分
+    const char* checksumPos = std::strrchr(buffer, ',');
+    if (!checksumPos) {
+        return false;  // 找不到检验和部分
+    }
+
+    // 提取检验和部分（十六进制）
+    unsigned char receivedChecksum;
+    if (sscanf(checksumPos + 1, "%02hhX", &receivedChecksum) != 1) {
+        return false;  // 提取检验和失败
+    }
+
+    // 计算数据部分的检验和（不包括检验和本身）
+    unsigned char calculatedChecksum = 0;
+    for (const char* p = buffer; p < checksumPos; ++p) {
+        calculatedChecksum += *p;
+    }
+    calculatedChecksum = calculatedChecksum % 256;  // 取模256
+
+    // 比较计算得到的检验和和接收到的检验和
+        return calculatedChecksum == receivedChecksum;
+}
+
 void handReadEvent(int sockfd, Epoll* ep) {
     char buf[READ_BUFFER];
     bzero(&buf, sizeof(buf));
@@ -74,12 +100,40 @@ void handReadEvent(int sockfd, Epoll* ep) {
         // 打印接受到的信息
         printf("message from client fd %d: %s\n", sockfd, buf);
 
+        bool judge = verifyChecksum(buf);
+        
         // 生成确认信息
         std::string confirmation = "Received:"; // 确认信息
-        confirmation += buf;// 添加确认信息的内容
+        confirmation += buf;                    // 添加确认信息的内容
+        confirmation += "\n";
+
+        SensorData data;
+        bool extract = (std::sscanf(buf, "%02d,%02d,%01d,%01d,%01d,%01d,%01d",
+                           &data.methane, &data.temperature, &data.smokeDetected,
+                           &data.powerStatus, &data.mainFanStatus, &data.backupFanStatus,
+                           &data.buzzersStatus) == 7);  // 确保成功提取了7个数据项
 
         // 生成操作指令
-        std::string instruction = "Server command: Perform Action 1";
+        if (data.methane > 30 || data.temperature > 30) {
+            if (data.mainFanStatus == 0) {
+                data.mainFanStatus = 1;
+            }
+            if (data.mainFanStatus == 1) {
+                data.backupFanStatus = 0;
+            }
+            if (data.methane > 65) {
+                data.powerStatus = 0;
+            }
+        }
+        if (data.powerStatus == 0) {
+            data.buzzersStatus = 1;
+        }
+
+        bzero(&buf, sizeof(buf));
+        std::snprintf(buf, sizeof(buf), "%01d,%01d,%01d,%01d",
+                      data.powerStatus,data.mainFanStatus, data.backupFanStatus, data.buzzersStatus);
+        std::string instruction = buf;
+        
         client_buffers[sockfd].push(confirmation);
         client_buffers[sockfd].push(instruction);
         
