@@ -107,6 +107,15 @@ void handReadEvent(int sockfd, Epoll* ep) {
         confirmation += buf;                    // 添加确认信息的内容
         confirmation += "\n";
 
+        std::string result;
+        for (int i = 0; i < strlen(buf); i++) {
+            result += static_cast<char>(buf[i]);
+        }
+        bzero(&buf, sizeof(buf));
+        for (int i = 0; i < result.size(); i++) {
+            buf[i] = result[i];
+        }
+        
         SensorData data;
         bool extract = (std::sscanf(buf, "%02d,%02d,%01d,%01d,%01d,%01d,%01d",
                            &data.methane, &data.temperature, &data.smokeDetected,

@@ -134,6 +134,10 @@ void receiveMessages(int fd) {
         }
     }
 }
+
+// 求检验和
+
+
 // 定时发送数据线程
 void periodicSender(int fd) {
     while (running) {
@@ -141,11 +145,6 @@ void periodicSender(int fd) {
         bzero(buf, sizeof(buf));
 
         std::unique_lock<std::mutex> lock(mtx);
-
-        if (!cv.wait_for(lock, std::chrono::seconds(5),
-                         [] { return urgent || !running; })) {
-        if(!running)    break;
-            bzero(buf, sizeof(buf));
 
             std::snprintf(buf, sizeof(buf), "%02d,%02d,%01d,%01d,%01d,%01d,%01d",
                       data.methane, data.temperature, data.smokeDetected, data.powerStatus,
@@ -159,8 +158,27 @@ void periodicSender(int fd) {
             checksum = checksum % 256;  // 取模256，得到一个0-255范围的值
             
             // 将检验和加到字符串的末尾
-            std::snprintf(buf + std::strlen(buf), sizeof(buf) - std::strlen(buf), ",%02X", checksum);
+            std::snprintf(buf + std::strlen(buf),
+                          sizeof(buf) - std::strlen(buf), ",%02X", checksum);
 
+            
+
+        if (!cv.wait_for(lock, std::chrono::seconds(5),
+                         [] { return urgent || !running; })) {
+            // if(!running)    break;
+            //     bzero(buf, sizeof(buf));
+
+            std::vector<unsigned char> binaryData;
+            size_t length = std::strlen(buf);
+            for (size_t i = 0; i < length; ++i) {
+                binaryData.push_back(static_cast<unsigned char>(buf[i]));
+            }
+
+            bzero(buf, sizeof(buf));
+            for (int i = 0; i < binaryData.size(); i++) {
+                buf[i] = binaryData[i];
+            }
+            
             ssize_t bytes_write = write(fd, buf, sizeof(buf));
             if (bytes_write == -1) {
                 errif(bytes_write, "Periodic send error");
@@ -175,7 +193,7 @@ void periodicSender(int fd) {
         // 紧急唤醒消息
         if (urgent) {
             urgent = false; // 重置紧急标志
-            bzero(buf, sizeof(buf));
+            // bzero(buf, sizeof(buf));
             
             snprintf(buf, sizeof(buf), "methane=%d, temperature=%d, smoke=%d, power=%d",
          data.methane, data.temperature, data.smokeDetected, data.powerStatus);
