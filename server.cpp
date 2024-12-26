@@ -125,7 +125,7 @@ void handReadEvent(int sockfd, Epoll* ep) {
         // 生成操作指令
         if (data.methane > 30 || data.temperature > 30) {
             if (data.mainFanStatus == 0) {
-                data.mainFanStatus = 1;
+                data.backupFanStatus = 1;
             }
             if (data.mainFanStatus == 1) {
                 data.backupFanStatus = 0;
